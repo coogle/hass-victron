@@ -17,6 +17,7 @@ from .const import (
     STRING,
     TextReadEntityType,
     UINT16,
+    UINT16_MAX,
     UINT32,
     UINT64,
     register_info_dict,
@@ -251,7 +252,15 @@ class VictronHub:
             offset = info.register - first_address
             if offset < 0 or offset >= len(result.registers):
                 continue
+            value = result.registers[offset]
+            # 0xFFFF is Victron's "not available" sentinel: the device answers
+            # the register but does not implement it (e.g. the lowvoltage /
+            # highvoltage alarms on a SmartSolar MPPT). The read path already
+            # treats it as unavailable (PR #433); counting it as undecodable
+            # here pruned whole working blocks at startup.
+            if value == UINT16_MAX:
+                continue
             valid_values = {item.value for item in info.entityType.decodeEnum}
-            if result.registers[offset] not in valid_values:
+            if value not in valid_values:
                 return True
         return False
